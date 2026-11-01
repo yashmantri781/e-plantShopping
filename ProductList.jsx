@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addItem } from './CartSlice';
 import CartItem from './CartItem';
@@ -168,33 +169,69 @@ export const plantsArray = [
 
 function ProductList({ onHomeClick }) {
   const [showCart, setShowCart] = useState(false);
+  const [addedToCart, setAddedToCart] = useState({});
+
   const dispatch = useDispatch();
-  const cartItems = useSelector((state) => state.cart.items || []);
 
-  // Helper function to check if a plant is already in the cart
-  const isPlantInCart = (plant) => {
-    return cartItems.some(
-      (item) => (item.id && item.id === plant.id) || item.name === plant.name
-    );
-  };
+  const cartItems = useSelector(
+    (state) => state.cart.items || []
+  );
 
+  // Calculate total quantity of plants in the cart
+  const totalQuantity = cartItems.reduce(
+    (total, item) => total + (item.quantity || 0),
+    0
+  );
+
+  // Keep addedToCart state synchronized with Redux
+  useEffect(() => {
+    const updatedState = {};
+
+    plantsArray.forEach((category) => {
+      category.plants.forEach((plant) => {
+        updatedState[plant.name] = cartItems.some(
+          (item) =>
+            (item.id && item.id === plant.id) ||
+            item.name === plant.name
+        );
+      });
+    });
+
+    setAddedToCart(updatedState);
+  }, [cartItems]);
+
+  // Add plant to Redux cart
   const handleAddToCart = (plant) => {
+    if (addedToCart[plant.name]) {
+      return;
+    }
+
     dispatch(
       addItem({
         id: plant.id,
         name: plant.name,
         image: plant.image,
         cost: plant.cost,
+        price: plant.price,
       })
     );
+
+    setAddedToCart((prev) => ({
+      ...prev,
+      [plant.name]: true,
+    }));
   };
 
+  // Navigate back to plant listing
   const handleContinueShopping = (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+
     setShowCart(false);
   };
 
-  // If viewing Cart, render CartItem with shared navigation
+  // Display shopping cart page
   if (showCart) {
     return (
       <div className="product-list-page">
@@ -204,6 +241,7 @@ function ProductList({ onHomeClick }) {
           onNavigatePlants={() => setShowCart(false)}
           onNavigateCart={() => setShowCart(true)}
         />
+
         <CartItem
           onContinueShopping={handleContinueShopping}
           onHomeClick={onHomeClick}
@@ -223,26 +261,58 @@ function ProductList({ onHomeClick }) {
 
       <main className="product-list-container">
         <header className="catalog-header">
-          <span className="catalog-badge">Botanical Collection</span>
-          <h2 className="catalog-title">Explore Our Living Houseplants</h2>
+          <span className="catalog-badge">
+            Botanical Collection
+          </span>
+
+          <h2 className="catalog-title">
+            Explore Our Living Houseplants
+          </h2>
+
           <p className="catalog-description">
-            Breathe life, calm, and pure air into your personal sanctuary. Hand-inspected, healthy plants delivered directly to your doorstep.
+            Breathe life, calm, and pure air into your personal
+            sanctuary. Hand-inspected, healthy plants delivered
+            directly to your doorstep.
           </p>
+
+          {/* Cart quantity display */}
+          <div className="cart-quantity-display">
+            <button
+              type="button"
+              onClick={() => setShowCart(true)}
+              className="cart-quantity-button"
+            >
+              🛒 Shopping Cart ({totalQuantity})
+            </button>
+          </div>
         </header>
 
+        {/* Display all plant categories */}
         {plantsArray.map((categorySection) => (
-          <section key={categorySection.category} className="category-section">
+          <section
+            key={categorySection.category}
+            className="product-list category-section"
+          >
             <div className="category-header">
-              <h3 className="category-title">{categorySection.category}</h3>
-              <span className="category-count">{categorySection.plants.length} Plants</span>
+              <h3 className="category-title">
+                {categorySection.category}
+              </h3>
+
+              <span className="category-count">
+                {categorySection.plants.length} Plants
+              </span>
             </div>
 
             <div className="plant-grid">
               {categorySection.plants.map((plant) => {
-                const inCart = isPlantInCart(plant);
+                const inCart =
+                  addedToCart[plant.name] || false;
 
                 return (
-                  <article key={plant.id} className="plant-card">
+                  <article
+                    key={plant.id}
+                    className="plant-card"
+                  >
                     <div className="plant-image-container">
                       <img
                         src={plant.image}
@@ -251,38 +321,64 @@ function ProductList({ onHomeClick }) {
                         loading="lazy"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = "https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=600&q=80";
+                          e.target.src =
+                            "https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=600&q=80";
                         }}
                       />
-                      <span className="plant-price-badge">{plant.cost}</span>
+
+                      <span className="plant-price-badge">
+                        {plant.cost}
+                      </span>
                     </div>
 
                     <div className="plant-details">
                       <div className="plant-heading-group">
-                        <h4 className="plant-name">{plant.name}</h4>
-                        <span className="plant-category-tag">{categorySection.category}</span>
+                        <h4 className="plant-name">
+                          {plant.name}
+                        </h4>
+
+                        <span className="plant-category-tag">
+                          {categorySection.category}
+                        </span>
                       </div>
-                      
-                      <p className="plant-description">{plant.description}</p>
+
+                      <p className="plant-description">
+                        {plant.description}
+                      </p>
 
                       <div className="plant-card-footer">
-                        <span className="plant-price-text">{plant.cost}</span>
+                        <span className="plant-price-text">
+                          {plant.cost}
+                        </span>
+
                         <button
                           type="button"
-                          className={`add-to-cart-btn ${inCart ? 'disabled-in-cart' : ''}`}
+                          className={`add-to-cart-btn ${
+                            inCart ? "disabled-in-cart" : ""
+                          }`}
                           onClick={() => handleAddToCart(plant)}
                           disabled={inCart}
                           aria-disabled={inCart}
                         >
                           {inCart ? (
                             <>
-                              <svg className="check-icon" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              <svg
+                                className="check-icon"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                                width="16"
+                                height="16"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
                               </svg>
                               Added to Cart
                             </>
                           ) : (
-                            'Add to Cart'
+                            "Add to Cart"
                           )}
                         </button>
                       </div>
